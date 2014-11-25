@@ -10,13 +10,13 @@ public class KmeansData {
     public DataPoint[] centroids;
     public int numGroup;
     public int dimension;
-    ArrayList<DataPoint> data;
+    ArrayList<DataPoint> indata;
 
     public KmeansData(int numG, int d) {
 	numGroup = numG;
 	dimension = d;
 	centroids = new DataPoint[numG];
-	data = new ArrayList<DataPoint>();
+	indata = new ArrayList<DataPoint>();
     }
 
     public double calDistPoint(double[] v1, double[] v2) {
@@ -59,19 +59,19 @@ public class KmeansData {
     public void updateGroup(ArrayList<DataPoint>[] groupM) {
 
 	// iterate all data points
-	for (int i = 0; i < data.size(); i++) {
+	for (int i = 0; i < indata.size(); i++) {
 	    double minDist = Double.MAX_VALUE;
 	    int group = 0;
 	    // iterate all centroid
 	    for (int j = 0; j < centroids.length; j++) {
 		double dist = 0;
 		// find the closest centroids
-		if ((dist = calDistPoint(centroids[i].data, data.get(i).data)) < minDist) {
+		if ((dist = calDistPoint(centroids[j].data, indata.get(i).data)) < minDist) {
 		    group = j;
 		    minDist = dist;
 		}
 	    }
-	    groupM[group].add(data.get(i));
+	    groupM[group].add(indata.get(i));
 	}
     }
 
@@ -99,7 +99,7 @@ public class KmeansData {
 	}
 	diff /= (double) numGroup;
 	System.out.println(diff);
-	return diff >= 0.9;
+	return diff < 0.00001;
     }
 
     public void parse(String fnName) {
@@ -112,7 +112,7 @@ public class KmeansData {
 		for (int i = 0; i < strArr.length; i++)
 		    dArr[i] = Double.parseDouble(strArr[i]);
 		DataPoint dp = new DataPoint(dArr);
-		data.add(dp);
+		indata.add(dp);
 	    }
 	    br.close();
 	} catch (FileNotFoundException e) {
@@ -126,10 +126,10 @@ public class KmeansData {
 	HashSet<Integer> used = new HashSet<Integer>();
 	int count = 0;
 	while (count != numGroup) {
-	    int idx = (int) Math.random() * data.size();
+	    int idx = (int) (Math.random() * indata.size());
 	    if (used.contains(idx))
 		continue;
-	    centroids[count++] = data.get(idx);
+	    centroids[count++] = indata.get(idx);
 	    used.add(idx);
 	}
     }
