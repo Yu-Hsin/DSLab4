@@ -1,4 +1,9 @@
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 public class KmeansData {
 
@@ -25,8 +30,9 @@ public class KmeansData {
     }
 
     public void kmeanProcedure() {
-
+	int iteration = 1;
 	while (true) {
+	    System.out.println(iteration++);
 	    DataPoint[] newCentroids = new DataPoint[centroids.length];
 
 	    @SuppressWarnings("unchecked")
@@ -87,16 +93,45 @@ public class KmeansData {
     }
 
     public boolean isConverge(DataPoint[] newCentroids) {
-
-	return true;
+	double diff = 0.0;
+	for (int i = 0; i < newCentroids.length; i++) {
+	    diff += calDistPoint(newCentroids[i].data, centroids[i].data);
+	}
+	diff /= (double) numGroup;
+	System.out.println(diff);
+	return diff >= 0.9;
     }
 
     public void parse(String fnName) {
-
+	try {
+	    BufferedReader br = new BufferedReader(new FileReader(fnName));
+	    String str = "";
+	    while ((str = br.readLine()) != null) {
+		String[] strArr = str.split(",");
+		double[] dArr = new double[strArr.length];
+		for (int i = 0; i < strArr.length; i++)
+		    dArr[i] = Double.parseDouble(strArr[i]);
+		DataPoint dp = new DataPoint(dArr);
+		data.add(dp);
+	    }
+	    br.close();
+	} catch (FileNotFoundException e) {
+	    e.printStackTrace();
+	} catch (IOException e) {
+	    e.printStackTrace();
+	}
     }
 
     public void setIniCen() {
-
+	HashSet<Integer> used = new HashSet<Integer>();
+	int count = 0;
+	while (count != numGroup) {
+	    int idx = (int) Math.random() * data.size();
+	    if (used.contains(idx))
+		continue;
+	    centroids[count++] = data.get(idx);
+	    used.add(idx);
+	}
     }
 
     public static void main(String[] args) {
