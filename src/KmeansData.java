@@ -19,6 +19,15 @@ public class KmeansData {
 	indata = new ArrayList<DataPoint>();
     }
 
+    /**
+     * calclate the Euclidean distance between two vectors
+     * 
+     * @param v1
+     *            vector1
+     * @param v2
+     *            vector2
+     * @return the Euclidean distance
+     */
     public double calDistPoint(double[] v1, double[] v2) {
 	double dist = 0;
 
@@ -27,7 +36,10 @@ public class KmeansData {
 	}
 	return Math.sqrt(dist);
     }
-
+    
+    /**
+     *	run k-means procedure 
+     */
     public void kmeanProcedure() {
 	int iteration = 1;
 	while (true) {
@@ -55,8 +67,12 @@ public class KmeansData {
 	}
     }
 
+    /**
+     * for each DataPoint, re-assign their group based on the new centroids
+     * 
+     * @param groupM
+     */
     public void updateGroup(ArrayList<DataPoint>[] groupM) {
-
 	// iterate all data points
 	for (int i = 0; i < indata.size(); i++) {
 	    double minDist = Double.MAX_VALUE;
@@ -74,6 +90,15 @@ public class KmeansData {
 	}
     }
 
+    /**
+     * get the new centroids from the newest formed groups
+     * 
+     * @param groupM
+     *            a list where each element conatins a list of DataPoint belongs
+     *            to that group
+     * @param newCentroids
+     *            new centroid
+     */
     public void getNewCen(ArrayList<DataPoint>[] groupM,
 	    DataPoint[] newCentroids) {
 	for (int i = 0; i < groupM.length; i++) {
@@ -91,6 +116,14 @@ public class KmeansData {
 	}
     }
 
+    /**
+     * calculate the difference betweeen new centroids and old centroids and see
+     * if they are similar enough to satifsy the stop criterion
+     * 
+     * @param newCentroids
+     *            new centroids
+     * @return if the k-mean procedure converges or not
+     */
     public boolean isConverge(DataPoint[] newCentroids) {
 	double diff = 0.0;
 	for (int i = 0; i < newCentroids.length; i++) {
@@ -101,6 +134,12 @@ public class KmeansData {
 	return diff < 0.00001;
     }
 
+    /**
+     * parse the data and store them into a DataPoint array
+     * 
+     * @param fnName
+     *            file name
+     */
     public void parse(String fnName) {
 	try {
 	    BufferedReader br = new BufferedReader(new FileReader(fnName));
@@ -121,6 +160,9 @@ public class KmeansData {
 	}
     }
 
+    /**
+     * set initial centroids
+     */
     public void setIniCen() {
 	HashSet<Integer> used = new HashSet<Integer>();
 	int count = 0;
