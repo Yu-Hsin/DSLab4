@@ -25,7 +25,6 @@ public class KmeansData {
 	for (int i = 0; i < v1.length; i++) {
 	    dist += Math.pow((v1[i] - v2[i]), 2);
 	}
-
 	return Math.sqrt(dist);
     }
 
