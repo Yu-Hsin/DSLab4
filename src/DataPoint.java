@@ -1,6 +1,8 @@
+import java.io.Serializable;
 
 
-public class DataPoint {
+
+public class DataPoint implements Serializable{
     
     public double [] data;
     private int group;
