@@ -110,7 +110,7 @@ public class KmeansDataPar {
 	}
 	diff /= (double) num_cluster;
 	System.out.println("centroid difference: " + diff);
-	return diff < 0.005;
+	return diff < 0.001;
     }
 
     /**

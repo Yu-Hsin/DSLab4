@@ -130,7 +130,7 @@ public class KmeansData {
 	}
 	diff /= (double) numGroup;
 	System.out.println("centroid difference: " + diff);
-	return diff < 0.005;
+	return diff < 0.001;
     }
 
     /**

@@ -183,7 +183,7 @@ public class KmeansDNA {
 	    diff += calDistPoint(newCentroids[i].data, centroids[i].data);
 	}
 	diff /= (double) numGroup;
-	System.out.println(diff);
+	System.out.println("centroid difference: " + diff);
 	return diff < 0.1; // should check
     }
 
