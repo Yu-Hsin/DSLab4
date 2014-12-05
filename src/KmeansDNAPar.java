@@ -7,20 +7,19 @@ import java.util.HashSet;
 
 import mpi.*;
 
-
 public class KmeansDNAPar {
     public static final int MAX_ITER = 5000;
-    
+
     public DNAPoint[] centroids;
     public int numGroup;
     public int dimension;
     public DNAPoint[] indata = null;
-    
+
     public KmeansDNAPar(int numG) {
 	numGroup = numG;
 	centroids = new DNAPoint[numG];
     }
-    
+
     /**
      * calclate the DNA distance between two vectors
      * 
@@ -38,7 +37,7 @@ public class KmeansDNAPar {
 	}
 	return dist;
     }
-    
+
     public int baseToIdx(char base) {
 	if (base == 'A')
 	    return 0;
@@ -49,18 +48,18 @@ public class KmeansDNAPar {
 	else
 	    return 3;
     }
-    
-    public char idxToBase (int idx) {
+
+    public char idxToBase(int idx) {
 	if (idx == 0)
 	    return 'A';
 	else if (idx == 1)
 	    return 'T';
 	else if (idx == 2)
 	    return 'C';
-	else 
+	else
 	    return 'G';
     }
-    
+
     public void printResult(int[] group) {
 	System.out.println("Finish Running K-Means!");
 	System.out.println("Number of data in each clusters:");
@@ -71,7 +70,7 @@ public class KmeansDNAPar {
 	}
 	System.out.println("Total data: " + total);
     }
-    
+
     public void updateGroup(DNAPoint[] dataPoints, int offset) {
 	for (int i = 0; i < offset; i++) {
 
@@ -90,8 +89,7 @@ public class KmeansDNAPar {
 	    dataPoints[i].group = group;
 	}
     }
-    
-    
+
     /**
      * parse the data and store them into a DataPoint array
      * 
@@ -108,7 +106,7 @@ public class KmeansDNAPar {
 		dataLen++;
 	    br.close();
 	    indata = new DNAPoint[dataLen];
-	    
+
 	    br = new BufferedReader(new FileReader(fnName));
 	    int idx = 0;
 	    while ((str = br.readLine()) != null) {
@@ -127,7 +125,7 @@ public class KmeansDNAPar {
 	    e.printStackTrace();
 	}
     }
-    
+
     /**
      * set initial centroids
      */
@@ -142,7 +140,7 @@ public class KmeansDNAPar {
 	    used.add(idx);
 	}
     }
-    
+
     /**
      * calculate the difference betweeen new centroids and old centroids and see
      * if they are similar enough to satifsy the stop criterion
@@ -160,8 +158,9 @@ public class KmeansDNAPar {
 	System.out.println(diff);
 	return diff < 0.1; // should check
     }
-    
+
     public static void main(String[] args) throws MPIException {
+	long startTime = System.currentTimeMillis();
 	MPI.Init(args);
 	if (args.length != 2) {
 	    System.out
@@ -180,21 +179,21 @@ public class KmeansDNAPar {
 	boolean[] running = new boolean[1];
 	running[0] = true;
 
-	/* 
-	 * Initialization
-	 * Read the input file, determine the total number of points and randomly choose initial condition
+	/*
+	 * Initialization Read the input file, determine the total number of
+	 * points and randomly choose initial condition
 	 */
 	KmeansDNAPar kmd = new KmeansDNAPar(Integer.parseInt(args[1]));
 	if (myrank == 0) {
 	    kmd.parse(args[0]); // parse input and store in the object
 	    kmd.setIniCen(); // set initial seed centroid
 	    dataSize[0] = kmd.indata.length;
-	    
+
 	    System.out.println(myrank + " " + dataSize[0]);
 	}
 
 	/* =================== Start EM here =========================== */
-	for(int iter = 0; iter < MAX_ITER; iter++) {
+	for (int iter = 0; iter < MAX_ITER; iter++) {
 
 	    /* 1. Send Centeriod and How Many Points */
 	    MPI.COMM_WORLD.Bcast(kmd.centroids, 0, num_cluster, MPI.OBJECT, 0);
@@ -246,7 +245,7 @@ public class KmeansDNAPar {
 		int[] centroidNum = new int[num_cluster];
 
 		/*
-		 * Add all the 
+		 * Add all the
 		 */
 		for (DNAPoint dpoint : kmd.indata) {
 		    for (int i = 0; i < dpoint.data.length; i++) {
@@ -260,15 +259,15 @@ public class KmeansDNAPar {
 		    for (int j = 0; j < kmd.dimension; j++) {
 			int minIdx = 0;
 			for (int k = 1; k < 4; k++) {
-			    if (ATCGNum[i][k][j] > ATCGNum[i][minIdx][j]) minIdx = k;
+			    if (ATCGNum[i][k][j] > ATCGNum[i][minIdx][j])
+				minIdx = k;
 			}
-			
+
 			curData[j] = kmd.idxToBase(minIdx);
 		    }
-		    
+
 		    newCentroids[i] = new DNAPoint(curData);
 		}
-
 
 		if (kmd.isConverge(newCentroids)) {
 		    running[0] = false;
@@ -282,9 +281,13 @@ public class KmeansDNAPar {
 		break;
 
 	}
-	
+	if (myrank == 0) {
+	    long endTime = System.currentTimeMillis();
+	    long totalTime = endTime - startTime;
+	    System.out.println("Total runtime: " + totalTime + "(ms)");
+	}
 	MPI.Finalize();
+
     }
-    
-    
+
 }
