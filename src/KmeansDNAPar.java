@@ -60,17 +60,18 @@ public class KmeansDNAPar {
 	    return 'G';
     }
 
-    public void printResult(int[] group) {
-	System.out.println("Finish Running K-Means!");
-	System.out.println("Number of data in each clusters:");
-	int total = 0;
-	for (int i = 0; i < group.length; i++) {
-	    System.out.println("Group " + (i + 1) + ": " + group[i]);
-	    total += group[i];
-	}
-	System.out.println("Total data: " + total);
-    }
 
+    /**
+     * for each DataPoint in the DataPoint array, re-assign their group based on
+     * the new centroids
+     * 
+     * @param dataPoints
+     *            The array storing DataPoint objects.
+     * @param start
+     *            Update objects from start.
+     * @param end
+     * 		  Update objects to end.
+     */
     public void updateGroup(DNAPoint[] dataPoints, int start, int end) {
 	for (int i = start; i < end; i++) {
 
@@ -158,6 +159,17 @@ public class KmeansDNAPar {
 	System.out.println(diff);
 	return diff < 0.1; // should check
     }
+    
+    public void printResult(int[] group) {
+	System.out.println("Finish Running K-Means!");
+	System.out.println("Number of data in each clusters:");
+	int total = 0;
+	for (int i = 0; i < group.length; i++) {
+	    System.out.println("Group " + (i + 1) + ": " + group[i]);
+	    total += group[i];
+	}
+	System.out.println("Total data: " + total);
+    }
 
     public static void main(String[] args) throws MPIException {
 	long startTime = System.currentTimeMillis();
@@ -189,6 +201,11 @@ public class KmeansDNAPar {
 
 	if (myrank == 0) kmd.setIniCen(); // set initial seed centroid
 
+	/*
+	 * Here determines the segments of every process
+	 * Ex:  5000 data, 5 process
+	 *     p0: start=0, end=1000; p1: start=1000, end=2000; ... 
+	 */
 	int segNum = dataSize / MPI.COMM_WORLD.Size();
 	int start = myrank * segNum;
 	int end = Math.min((myrank + 1) * segNum, dataSize);
@@ -198,14 +215,23 @@ public class KmeansDNAPar {
 	/* =================== Start K-means here =========================== */
 	for (int iter = 0; iter < MAX_ITER; iter++) {
 
-	    /* 1. Send Centeriod and How Many Points */
+	    /* 1. Broadcast the latest centroids */
 	    MPI.COMM_WORLD.Bcast(kmd.centroids, 0, num_cluster, MPI.OBJECT, 0);
 
+	    /*
+	     * Procedures are different among Master and Slaves here.
+	     */
 	    if (myrank == 0) {
-		/* 3. Update the group of each segment */
+		/* 2.(master) Update the group of its segment */
 		kmd.updateGroup(kmd.indata, start, end);
 
-		/* 4. Gather the updated centroids */
+		/*
+		 * 3.(master) In this step, we reduce the inter-communication
+		 *            by only transmitting the stats of segments.
+		 *            That is, each process is responsible for a part of 
+		 *            the whole data, and only transmits pre-processed data
+		 *            to avoid network bottleneck.
+		 */
 		ATCGNum = new int[num_cluster][4][kmd.dimension];
 		groupCount = new int[num_cluster];
 		
@@ -217,6 +243,7 @@ public class KmeansDNAPar {
 		    groupCount[dpoint.group]++;
 		}
 		
+		/* Receive the pre-processed data from slaves */
 		for (int i = 1; i < MPI.COMM_WORLD.Size(); i++) {
 		    int[][][] slaveBuf = new int[num_cluster][4][kmd.dimension];
 		    int[] slaveGroupCount = new int[num_cluster];
@@ -232,10 +259,10 @@ public class KmeansDNAPar {
 		    }
 		}
 	    } else {
-		/* 3. Update the group of each segment */
+		/* 2.(slaves) Update the group of each segment */
 		kmd.updateGroup(kmd.indata, start, end);
 
-		/* 4. Send the updated centroids to master */
+		/* 3.(slaves) Send the stats to master */
 		int[][][] slaveBuf = new int[num_cluster][4][kmd.dimension];
 		int[] slaveGroupCount = new int[num_cluster];
 		
@@ -251,13 +278,10 @@ public class KmeansDNAPar {
 		MPI.COMM_WORLD.Send(slaveGroupCount, 0, num_cluster, MPI.INT, 0, 3);
 	    }
 
-	    /* 5. The master update the centroids */
+	    /* 5.(master) The master updates the centroids */
 	    if (myrank == 0) {
 		DNAPoint[] newCentroids = new DNAPoint[num_cluster];
 
-		/*
-		 * Add all the
-		 */
 		for (int i = 0; i < num_cluster; i++) {
 		    char[] curData = new char[kmd.dimension];
 		    for (int j = 0; j < kmd.dimension; j++) {
@@ -272,6 +296,7 @@ public class KmeansDNAPar {
 		    newCentroids[i] = new DNAPoint(curData);
 		}
 
+		/* Check if the current results already converge. */
 		if (kmd.isConverge(newCentroids)) {
 		    running[0] = false;
 		    kmd.printResult(groupCount);
@@ -279,6 +304,7 @@ public class KmeansDNAPar {
 		kmd.centroids = newCentroids;
 	    }
 
+	    /* Sync all process, if the k-means converge, every process breaks together */
 	    MPI.COMM_WORLD.Bcast(running, 0, 1, MPI.BOOLEAN, 0);
 	    if (!running[0])
 		break;
