@@ -143,9 +143,10 @@ public class KmeansDNA {
 		System.out.println("No points in this centroids!");
 	    }
 	    char[] tmp = new char[dimension];
-	    for (int p = 0; p < groupM[i].size(); p++) {
+	    
+	    for (int j = 0; j < dimension; j++) {
 		int[] count = new int[4];
-		for (int j = 0; j < dimension; j++) {
+		for (int p = 0; p < groupM[i].size(); p++) {
 		    char[] curDNA = groupM[i].get(p).data;
 		    count[baseToIdx(curDNA[j])] += 1;
 		}
@@ -237,7 +238,7 @@ public class KmeansDNA {
     public static void main(String[] args) {
 	if (args.length != 2) {
 	    System.out
-		    .println("[Usage] java KmeansData <input data> <number of cluster>");
+		    .println("[Usage] java KmeansData <input da	`````````ta> <number of cluster>");
 	    return;
 	}
 
