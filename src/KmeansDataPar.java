@@ -13,9 +13,8 @@ public class KmeansDataPar {
     public int dimension;
     public DataPoint[] indata = null;
 
-    public KmeansDataPar(int numG, int d) {
+    public KmeansDataPar(int numG) {
 	numGroup = numG;
-	dimension = d;
 	centroids = new DataPoint[numG];
     }
 
@@ -186,8 +185,7 @@ public class KmeansDataPar {
 	boolean[] running = new boolean[1];
 	running[0] = true;
 
-	KmeansDataPar kmd = new KmeansDataPar(Integer.parseInt(args[1]),
-		Integer.parseInt(args[2]));
+	KmeansDataPar kmd = new KmeansDataPar(Integer.parseInt(args[1]));
 	if (myrank == 0) {
 	    kmd.parse(args[0]); // parse input and store in the object
 	    kmd.setIniCen(); // set initial seed centroid
