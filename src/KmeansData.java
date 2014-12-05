@@ -12,9 +12,8 @@ public class KmeansData {
     public int dimension;
     ArrayList<DataPoint> indata;
 
-    public KmeansData(int numG, int d) {
+    public KmeansData(int numG) {
 	numGroup = numG;
-	dimension = d;
 	centroids = new DataPoint[numG];
 	indata = new ArrayList<DataPoint>();
     }
@@ -58,7 +57,7 @@ public class KmeansData {
 	    // update the centroids
 	    getNewCen(groupM, newCentroids);
 	    // check convergence
-	    if (isConverge(newCentroids)) {
+	    if (isConverge(newCentroids) || iteration >= 5000) {
 		printResult(groupM);
 		return;
 	    }
@@ -131,7 +130,7 @@ public class KmeansData {
 	}
 	diff /= (double) numGroup;
 	System.out.println("centroid difference: " + diff);
-	return diff < 0.00001;
+	return diff < 0.005;
     }
 
     /**
@@ -146,6 +145,7 @@ public class KmeansData {
 	    String str = "";
 	    while ((str = br.readLine()) != null) {
 		String[] strArr = str.split(",");
+		dimension = strArr.length;
 		double[] dArr = new double[strArr.length];
 		for (int i = 0; i < strArr.length; i++)
 		    dArr[i] = Double.parseDouble(strArr[i]);
@@ -188,14 +188,13 @@ public class KmeansData {
 
     public static void main(String[] args) {
 	long startTime = System.currentTimeMillis();
-	if (args.length != 3) {
+	if (args.length != 2) {
 	    System.out
-		    .println("[Usage] java KmeansData <input data> <number of cluster> <dimension>");
+		    .println("[Usage] java KmeansData <input data> <number of cluster>");
 	    return;
 	}
 
-	KmeansData kmd = new KmeansData(Integer.parseInt(args[1]),
-		Integer.parseInt(args[2]));
+	KmeansData kmd = new KmeansData(Integer.parseInt(args[1]));
 	kmd.parse(args[0]); // parse input and store in the object
 	kmd.setIniCen(); // set initial seed centroid
 	kmd.kmeanProcedure(); // do kmean procedure
