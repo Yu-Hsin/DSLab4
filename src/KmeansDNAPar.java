@@ -60,19 +60,20 @@ public class KmeansDNAPar {
 	    return 'G';
     }
 
-    public void printResult(int[] group) {
-	System.out.println("Finish Running K-Means!");
-	System.out.println("Number of data in each clusters:");
-	int total = 0;
-	for (int i = 0; i < group.length; i++) {
-	    System.out.println("Group " + (i + 1) + ": " + group[i]);
-	    total += group[i];
-	}
-	System.out.println("Total data: " + total);
-    }
 
-    public void updateGroup(DNAPoint[] dataPoints, int offset) {
-	for (int i = 0; i < offset; i++) {
+    /**
+     * for each DataPoint in the DataPoint array, re-assign their group based on
+     * the new centroids
+     * 
+     * @param dataPoints
+     *            The array storing DataPoint objects.
+     * @param start
+     *            Update objects from start.
+     * @param end
+     * 		  Update objects to end.
+     */
+    public void updateGroup(DNAPoint[] dataPoints, int start, int end) {
+	for (int i = start; i < end; i++) {
 
 	    double minDist = Double.MAX_VALUE;
 	    int group = 0;
@@ -158,13 +159,24 @@ public class KmeansDNAPar {
 	System.out.println(diff);
 	return diff < 0.1; // should check
     }
+    
+    public void printResult(int[] group) {
+	System.out.println("Finish Running K-Means!");
+	System.out.println("Number of data in each clusters:");
+	int total = 0;
+	for (int i = 0; i < group.length; i++) {
+	    System.out.println("Group " + (i + 1) + ": " + group[i]);
+	    total += group[i];
+	}
+	System.out.println("Total data: " + total);
+    }
 
     public static void main(String[] args) throws MPIException {
 	long startTime = System.currentTimeMillis();
 	MPI.Init(args);
 	if (args.length != 2) {
 	    System.out
-		    .println("[Usage] java KmeansData <input data> <number of cluster>");
+	    	.println("[Usage] java KmeansData <input data> <number of cluster>");
 	    MPI.Finalize();
 	    return;
 	}
@@ -174,85 +186,101 @@ public class KmeansDNAPar {
 	// the value of k in "k"means
 	int num_cluster = Integer.parseInt(args[1]);
 	// number of total points
-	int[] dataSize = new int[1];
+	int dataSize = 0;
 	// being true until converge
 	boolean[] running = new boolean[1];
 	running[0] = true;
 
-	/*
-	 * Initialization Read the input file, determine the total number of
-	 * points and randomly choose initial condition
+	/* 
+	 * Initialization
+	 * Read the input file, determine the total number of points and randomly choose initial condition
 	 */
 	KmeansDNAPar kmd = new KmeansDNAPar(Integer.parseInt(args[1]));
-	if (myrank == 0) {
-	    kmd.parse(args[0]); // parse input and store in the object
-	    kmd.setIniCen(); // set initial seed centroid
-	    dataSize[0] = kmd.indata.length;
+	kmd.parse(args[0]); // parse input and store in the object
+	dataSize = kmd.indata.length;
 
-	    System.out.println(myrank + " " + dataSize[0]);
-	}
+	if (myrank == 0) kmd.setIniCen(); // set initial seed centroid
 
-	/* =================== Start EM here =========================== */
+	/*
+	 * Here determines the segments of every process
+	 * Ex:  5000 data, 5 process
+	 *     p0: start=0, end=1000; p1: start=1000, end=2000; ... 
+	 */
+	int segNum = dataSize / MPI.COMM_WORLD.Size();
+	int start = myrank * segNum;
+	int end = Math.min((myrank + 1) * segNum, dataSize);
+	int[][][] ATCGNum = null;
+	int[] groupCount = null;
+
+	/* =================== Start K-means here =========================== */
 	for (int iter = 0; iter < MAX_ITER; iter++) {
 
-	    /* 1. Send Centeriod and How Many Points */
+	    /* 1. Broadcast the latest centroids */
 	    MPI.COMM_WORLD.Bcast(kmd.centroids, 0, num_cluster, MPI.OBJECT, 0);
-	    MPI.COMM_WORLD.Bcast(dataSize, 0, 1, MPI.INT, 0);
 
-	    /* 2. Send Data Point Segments */
-	    int segNum = dataSize[0] / MPI.COMM_WORLD.Size();
+	    /*
+	     * Procedures are different among Master and Slaves here.
+	     */
 	    if (myrank == 0) {
-		for (int i = 1; i < MPI.COMM_WORLD.Size(); i++) {
-		    int start = i * segNum;
-		    int end = Math.min((i + 1) * segNum, dataSize[0]);
-		    MPI.COMM_WORLD.Send(kmd.indata, start, end - start,
-			    MPI.OBJECT, i, 0);
+		/* 2.(master) Update the group of its segment */
+		kmd.updateGroup(kmd.indata, start, end);
+
+		/*
+		 * 3.(master) In this step, we reduce the inter-communication
+		 *            by only transmitting the stats of segments.
+		 *            That is, each process is responsible for a part of 
+		 *            the whole data, and only transmits pre-processed data
+		 *            to avoid network bottleneck.
+		 */
+		ATCGNum = new int[num_cluster][4][kmd.dimension];
+		groupCount = new int[num_cluster];
+		
+		for (int i = start; i < end; i++) {
+		    DNAPoint dpoint = kmd.indata[i];
+		    for (int j = 0; j < kmd.dimension; j++) {
+			ATCGNum[dpoint.group][kmd.baseToIdx(dpoint.data[j])][j]++;
+		    }
+		    groupCount[dpoint.group]++;
 		}
-
-		/* 3. Update the group of each segment */
-		kmd.updateGroup(kmd.indata, segNum);
-
-		/* 4. Gather the updated centroids */
+		
+		/* Receive the pre-processed data from slaves */
 		for (int i = 1; i < MPI.COMM_WORLD.Size(); i++) {
-		    int bufSize = (i + 1) * segNum > dataSize[0] ? dataSize[0]
-			    % segNum : segNum;
-		    DNAPoint[] slaveBuf = new DNAPoint[bufSize];
+		    int[][][] slaveBuf = new int[num_cluster][4][kmd.dimension];
+		    int[] slaveGroupCount = new int[num_cluster];
 
-		    MPI.COMM_WORLD.Recv(slaveBuf, 0, bufSize, MPI.OBJECT, i, 1);
-
-		    for (int j = 0; j < slaveBuf.length; j++) {
-			kmd.indata[i * segNum + j] = slaveBuf[j];
+		    MPI.COMM_WORLD.Recv(slaveBuf, 0, num_cluster, MPI.OBJECT, i, 1);
+		    MPI.COMM_WORLD.Recv(slaveGroupCount, 0, num_cluster, MPI.INT, i, 3);
+		    
+		    for (int x = 0; x < num_cluster; x++) {
+			for (int y = 0; y < 4; y++) {
+			    for (int z = 0; z < kmd.dimension; z++) ATCGNum[x][y][z] += slaveBuf[x][y][z];
+			}
+			groupCount[x] += slaveGroupCount[x];
 		    }
 		}
 	    } else {
-		int bufSize = (myrank + 1) * segNum > dataSize[0] ? dataSize[0]
-			% segNum : segNum;
-		DNAPoint[] slaveBuf = new DNAPoint[bufSize];
+		/* 2.(slaves) Update the group of each segment */
+		kmd.updateGroup(kmd.indata, start, end);
 
-		MPI.COMM_WORLD.Recv(slaveBuf, 0, bufSize, MPI.OBJECT, 0, 0);
-
-		/* 3. Update the group of each segment */
-		kmd.updateGroup(slaveBuf, bufSize);
-
-		/* 4. Send the updated centroids to master */
-		MPI.COMM_WORLD.Send(slaveBuf, 0, bufSize, MPI.OBJECT, 0, 1);
+		/* 3.(slaves) Send the stats to master */
+		int[][][] slaveBuf = new int[num_cluster][4][kmd.dimension];
+		int[] slaveGroupCount = new int[num_cluster];
+		
+		for (int i = start; i < end; i++) {
+		    DNAPoint dpoint = kmd.indata[i];
+		    for (int j = 0; j < kmd.dimension; j++) {
+			slaveBuf[dpoint.group][kmd.baseToIdx(dpoint.data[j])][j]++;
+		    }
+		    slaveGroupCount[dpoint.group]++;
+		}
+		
+		MPI.COMM_WORLD.Send(slaveBuf, 0, num_cluster, MPI.OBJECT, 0, 1);
+		MPI.COMM_WORLD.Send(slaveGroupCount, 0, num_cluster, MPI.INT, 0, 3);
 	    }
 
-	    /* 5. The master update the centroids */
+	    /* 5.(master) The master updates the centroids */
 	    if (myrank == 0) {
 		DNAPoint[] newCentroids = new DNAPoint[num_cluster];
-		int[][][] ATCGNum = new int[num_cluster][4][dataSize[0]];
-		int[] centroidNum = new int[num_cluster];
-
-		/*
-		 * Add all the
-		 */
-		for (DNAPoint dpoint : kmd.indata) {
-		    for (int i = 0; i < dpoint.data.length; i++) {
-			ATCGNum[dpoint.group][kmd.baseToIdx(dpoint.data[i])][i]++;
-		    }
-		    centroidNum[dpoint.group]++;
-		}
 
 		for (int i = 0; i < num_cluster; i++) {
 		    char[] curData = new char[kmd.dimension];
@@ -262,20 +290,21 @@ public class KmeansDNAPar {
 			    if (ATCGNum[i][k][j] > ATCGNum[i][minIdx][j])
 				minIdx = k;
 			}
-
 			curData[j] = kmd.idxToBase(minIdx);
 		    }
 
 		    newCentroids[i] = new DNAPoint(curData);
 		}
 
+		/* Check if the current results already converge. */
 		if (kmd.isConverge(newCentroids)) {
 		    running[0] = false;
-		    kmd.printResult(centroidNum);
+		    kmd.printResult(groupCount);
 		}
 		kmd.centroids = newCentroids;
 	    }
 
+	    /* Sync all process, if the k-means converge, every process breaks together */
 	    MPI.COMM_WORLD.Bcast(running, 0, 1, MPI.BOOLEAN, 0);
 	    if (!running[0])
 		break;

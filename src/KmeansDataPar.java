@@ -44,8 +44,10 @@ public class KmeansDataPar {
      * 
      * @param dataPoints
      *            The array storing DataPoint objects.
-     * @param offset
-     *            Update the 0 - offset-1 objects.
+     * @param start
+     *            Update objects from start.
+     * @param end
+     * 		  Update objects to end.
      */
     public void updateGroup(DataPoint[] dataPoints, int start, int end) {
 	for (int i = start; i < end; i++) {
@@ -201,28 +203,42 @@ public class KmeansDataPar {
 	KmeansDataPar kmd = new KmeansDataPar(Integer.parseInt(args[1]));
 	kmd.parse(args[0]); // parse input and store in the object
 	dataSize = kmd.indata.length;
-
 	if (myrank == 0) kmd.setIniCen(); // set initial seed centroid
 
+	/*
+	 * Here determines the segments of every process
+	 * Ex:  5000 data, 5 process
+	 *     p0: start=0, end=1000; p1: start=1000, end=2000; ... 
+	 */
 	int segNum = dataSize / MPI.COMM_WORLD.Size();
 	int start = myrank * segNum;
 	int end = Math.min((myrank + 1) * segNum, dataSize);
 	DataPoint[] sumBuffer = null;
 
-	/* =================== Start EM here =========================== */
+	/* =================== Start k-means here =========================== */
 	for(int iter = 0; iter < MAX_ITER; iter++) {
 
-	    /* 1. Send Centeriod and How Many Points */
+	    /* 1. Broadcast the latest centroids */
 	    MPI.COMM_WORLD.Bcast(kmd.centroids, 0, num_cluster, MPI.OBJECT, 0);
 
-	    /* 2. Send Data Point Segments */
-
+	    /*
+	     * Procedures are different among Master and Slaves here.
+	     */
 	    if (myrank == 0) {
 
-		/* 3. Update the group of each segment */
+		/* 2.(master) Update the group of its segment */
 		kmd.updateGroup(kmd.indata, start, end);
 
-		/* 4. Gather the updated centroids */
+		/*
+		 * 3.(master) In this step, we reduce the inter-communication
+		 *            by only transmitting the stats of segments.
+		 *            That is, each process is responsible for a part of 
+		 *            the whole data, and then compute the sum of coordinates
+		 *            of each cluster and the amount of points classified
+		 *            into each cluster. 
+		 *            Finally, the master process only need to sum all of the 
+		 *            stats rather than receiving a part of data points.
+		 */
 		sumBuffer = new DataPoint[num_cluster];
 		for (int i = 0; i < num_cluster; i++) {
 		    double[] initialVal = new double[kmd.dimension];
@@ -246,10 +262,10 @@ public class KmeansDataPar {
 		    }
 		}
 	    } else {
-		/* 3. Update the group of each segment */
+		/* 2.(slaves) Update the group of each segment */
 		kmd.updateGroup(kmd.indata, start, end);
 
-		/* 4. Send the updated data points to master */
+		/* 3.(slaves) Send the stats to master */
 		sumBuffer = new DataPoint[num_cluster];
 		for (int i = 0; i < num_cluster; i++) {
 		    double[] initialVal = new double[kmd.dimension];
@@ -265,20 +281,18 @@ public class KmeansDataPar {
 		MPI.COMM_WORLD.Send(sumBuffer, 0, num_cluster, MPI.OBJECT, 0, 1);
 	    }
 
-	    /* 5. The master update the centroids */
+	    /* 5.(master) The master updates the centroids */
 	    if (myrank == 0) {
 		DataPoint[] newCentroids = null;
 		int[] centroidNum = new int[num_cluster];
 
-		/*
-		 * Add all the 
-		 */
 		for (int i = 0; i < num_cluster; i++) {
 		    sumBuffer[i].divide((double)sumBuffer[i].count);
 		    centroidNum[i] = sumBuffer[i].count;
 		}
 		newCentroids = sumBuffer;
 
+		/* Check if the current results already converge. */
 		if (kmd.isConverge(newCentroids, num_cluster)) {
 		    running[0] = false;
 		    kmd.printResult(centroidNum);
@@ -286,6 +300,7 @@ public class KmeansDataPar {
 		kmd.centroids = newCentroids;
 	    }
 
+	    /* Sync all process, if the k-means converge, every process breaks together */
 	    MPI.COMM_WORLD.Bcast(running, 0, 1, MPI.BOOLEAN, 0);
 	    if (!running[0])
 		break;
