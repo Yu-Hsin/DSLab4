@@ -20,6 +20,15 @@ public class KmeansDataPar {
 	centroids = new DataPoint[numG];
     }
 
+    /**
+     * calclate the Euclidean distance between two vectors
+     * 
+     * @param v1
+     *            vector1
+     * @param v2
+     *            vector2
+     * @return the Euclidean distance
+     */
     public double calDistPoint(double[] v1, double[] v2) {
 	double dist = 0;
 
@@ -29,8 +38,17 @@ public class KmeansDataPar {
 	return Math.sqrt(dist);
     }
 
+
+    /**
+     * for each DataPoint in the DataPoint array, re-assign their group based on the new centroids
+     * @param dataPoints
+     * 			The array storing DataPoint objects.
+     * @param offset
+     * 			Update the 0 - offset-1 objects.
+     */
     public void updateGroup(DataPoint[] dataPoints, int offset) {
 	for (int i = 0; i < offset; i++) {
+
 	    double minDist = Double.MAX_VALUE;
 	    int group = 0;
 
@@ -47,6 +65,15 @@ public class KmeansDataPar {
 	}
     }
 
+    /**
+     * get the new centroids from the newest formed groups
+     * 
+     * @param groupM
+     *            a list where each element conatins a list of DataPoint belongs
+     *            to that group
+     * @param newCentroids
+     *            new centroid
+     */
     public void getNewCen(ArrayList<DataPoint>[] groupM,
 	    DataPoint[] newCentroids) {
 	for (int i = 0; i < groupM.length; i++) {
@@ -64,6 +91,15 @@ public class KmeansDataPar {
 	}
     }
 
+    /**
+     * calculate the difference betweeen new centroids and old centroids and see
+     * if they are similar enough to satifsy the stop criterion
+     * 
+     * @param newCentroids
+     *            new centroids
+     * @return if the k-mean procedure converges or not
+     */
+
     public boolean isConverge(DataPoint[] newCentroids, int num_cluster) {
 	double diff = 0.0;
 	for (int i = 0; i < newCentroids.length; i++) {
@@ -74,6 +110,12 @@ public class KmeansDataPar {
 	return diff < 0.00001;
     }
 
+    /**
+     * parse the data and store them into a DataPoint array
+     * 
+     * @param fnName
+     *            file name
+     */
     public void parse(String fnName) {
 	try {
 	    BufferedReader br = new BufferedReader(new FileReader(fnName));
@@ -102,6 +144,9 @@ public class KmeansDataPar {
 	}
     }
 
+    /**
+     * set initial centroids
+     */
     public void setIniCen() {
 	HashSet<Integer> used = new HashSet<Integer>();
 	int count = 0;
@@ -148,7 +193,7 @@ public class KmeansDataPar {
 	    /*
 	    for (int i = 0; i < kmd.centroids.length; i++) 
 		System.out.println(myrank + "/" + dataSize[0] + ":  " + kmd.centroids[i].data[0]);
-	    */
+	     */
 
 	    /* 2. Send Data Point Segments */
 	    int segNum = dataSize[0] / MPI.COMM_WORLD.Size();
@@ -211,7 +256,7 @@ public class KmeansDataPar {
 		System.out.println("New centroids:");
 		for (int i = 0; i < newCentroids.length; i++) System.out.print(newCentroids[i].data[0] + " " + newCentroids[i].data[1] + ";  ");
 		System.out.println();
-		*/
+		 */
 
 		if (kmd.isConverge(newCentroids, num_cluster)) {
 		    running[0] = false;
