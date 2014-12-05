@@ -6,7 +6,7 @@ public class DNAPoint implements Serializable{
     
     private static final long serialVersionUID = 1L;
     public char [] data;
-    private int group;
+    public int group;
     
     public DNAPoint (char [] input) {
 	data = input.clone();
