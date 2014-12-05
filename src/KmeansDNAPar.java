@@ -132,7 +132,6 @@ public class KmeansDNAPar {
      * set initial centroids
      */
     public void setIniCen() {
-	/*
 	HashSet<Integer> used = new HashSet<Integer>();
 	int count = 0;
 	while (count != numGroup) {
@@ -142,15 +141,6 @@ public class KmeansDNAPar {
 	    centroids[count++] = indata[idx];
 	    used.add(idx);
 	}
-	*/
-	
-	centroids[0] = indata[0];
-	centroids[1] = indata[250];
-	centroids[2] = indata[500];
-	centroids[3] = indata[795];
-	centroids[4] = indata[921];
-	
-	
     }
     
     /**

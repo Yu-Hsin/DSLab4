@@ -228,11 +228,6 @@ public class KmeansDNA {
 	    used.add(idx);
 	}
 	
-	centroids[0] = indata.get(0);
-	centroids[1] = indata.get(250);
-	centroids[2] = indata.get(500);
-	centroids[3] = indata.get(795);
-	centroids[4] = indata.get(921);
     }
 
     public static void main(String[] args) {
