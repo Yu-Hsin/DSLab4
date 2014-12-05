@@ -8,8 +8,11 @@ public class DataPoint implements Serializable{
     public double [] data;
     public int group;
     
+    public int count;
+    
     public DataPoint (double [] input) {
 	data = input.clone();
+	count = 0;
     }
     
     public void setGroup (int g) { group = g; }
