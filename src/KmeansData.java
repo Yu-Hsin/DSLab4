@@ -43,7 +43,7 @@ public class KmeansData {
     public void kmeanProcedure() {
 	int iteration = 1;
 	while (true) {
-	    System.out.println(iteration++);
+	    System.out.println("Iteration: " + iteration++);
 	    DataPoint[] newCentroids = new DataPoint[centroids.length];
 
 	    @SuppressWarnings("unchecked")
@@ -130,7 +130,7 @@ public class KmeansData {
 	    diff += calDistPoint(newCentroids[i].data, centroids[i].data);
 	}
 	diff /= (double) numGroup;
-	System.out.println(diff);
+	System.out.println("centroid difference: " +diff);
 	return diff < 0.00001;
     }
 
