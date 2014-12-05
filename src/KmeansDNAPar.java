@@ -32,7 +32,6 @@ public class KmeansDNAPar {
      */
     public int calDistPoint(char[] v1, char[] v2) {
 	int dist = 0;
-	;
 
 	for (int i = 0; i < v1.length; i++) {
 	    dist += v1[i] == v2[i] ? 0 : 1;
