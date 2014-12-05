@@ -192,10 +192,12 @@ public class KmeansDataPar {
 	boolean[] running = new boolean[1];
 	running[0] = true;
 
+
 	/* 
 	 * Initialization
 	 * Read the input file, determine the total number of points and randomly choose initial condition
 	 */
+
 	KmeansDataPar kmd = new KmeansDataPar(Integer.parseInt(args[1]));
 	if (myrank == 0) {
 	    kmd.parse(args[0]); // parse input and store in the object
