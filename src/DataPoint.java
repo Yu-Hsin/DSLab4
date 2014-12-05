@@ -5,7 +5,7 @@ import java.io.Serializable;
 public class DataPoint implements Serializable{
     
     public double [] data;
-    private int group;
+    public int group;
     
     public DataPoint (double [] input) {
 	data = input.clone();
