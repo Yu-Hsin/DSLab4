@@ -9,7 +9,7 @@ import mpi.*;
 
 public class KmeansDataPar {
     public static final int MAX_ITER = 5000;
-    
+
     public DataPoint[] centroids;
     public int numGroup;
     public int dimension;
@@ -178,7 +178,7 @@ public class KmeansDataPar {
 	long startTime = System.currentTimeMillis();
 	if (args.length != 2) {
 	    System.out
-	    	.println("[Usage] java KmeansDataPar <input data> <number of cluster>");
+	    .println("[Usage] java KmeansDataPar <input data> <number of cluster>");
 	    MPI.Finalize();
 	    return;
 	}
@@ -192,7 +192,7 @@ public class KmeansDataPar {
 	// being true until converge
 	boolean[] running = new boolean[1];
 	running[0] = true;
-	
+
 
 	/* 
 	 * Initialization
@@ -201,13 +201,14 @@ public class KmeansDataPar {
 	KmeansDataPar kmd = new KmeansDataPar(Integer.parseInt(args[1]));
 	kmd.parse(args[0]); // parse input and store in the object
 	dataSize = kmd.indata.length;
-	
+
 	if (myrank == 0) kmd.setIniCen(); // set initial seed centroid
-	
+
 	int segNum = dataSize / MPI.COMM_WORLD.Size();
 	int start = myrank * segNum;
 	int end = Math.min((myrank + 1) * segNum, dataSize);
-	
+	DataPoint[] sumBuffer = null;
+
 	/* =================== Start EM here =========================== */
 	for(int iter = 0; iter < MAX_ITER; iter++) {
 
@@ -215,55 +216,68 @@ public class KmeansDataPar {
 	    MPI.COMM_WORLD.Bcast(kmd.centroids, 0, num_cluster, MPI.OBJECT, 0);
 
 	    /* 2. Send Data Point Segments */
-	    
+
 	    if (myrank == 0) {
 
 		/* 3. Update the group of each segment */
 		kmd.updateGroup(kmd.indata, start, end);
 
 		/* 4. Gather the updated centroids */
-		
-		for (int i = 1; i < MPI.COMM_WORLD.Size(); i++) {
-		    int bufSize = (i + 1) * segNum > dataSize ? dataSize
-			    % segNum : segNum;
-		    DataPoint[] slaveBuf = new DataPoint[bufSize];
-		    MPI.COMM_WORLD.Recv(slaveBuf, 0, bufSize, MPI.OBJECT, i, 1);
+		sumBuffer = new DataPoint[num_cluster];
+		for (int i = 0; i < num_cluster; i++) {
+		    double[] initialVal = new double[kmd.dimension];
+		    for (int j = 0; j < kmd.dimension; j++) initialVal[j] = 0.0;
+		    sumBuffer[i] = new DataPoint(initialVal);
+		}
 
-		    for (int j = 0; j < slaveBuf.length; j++) {
-			kmd.indata[i * segNum + j] = slaveBuf[j];
+		for (int i = start; i < end; i++) {
+		    DataPoint dpoint = kmd.indata[i];
+		    sumBuffer[dpoint.group].count++;
+		    sumBuffer[dpoint.group].add(dpoint);
+		}
+
+		for (int i = 1; i < MPI.COMM_WORLD.Size(); i++) {
+		    DataPoint[] slaveBuf = new DataPoint[num_cluster];
+		    MPI.COMM_WORLD.Recv(slaveBuf, 0, num_cluster, MPI.OBJECT, i, 1);
+
+		    for (int j = 0; j < num_cluster; j++) {
+			sumBuffer[j].count += slaveBuf[j].count;
+			sumBuffer[j].add(slaveBuf[j]);
 		    }
 		}
 	    } else {
 		/* 3. Update the group of each segment */
 		kmd.updateGroup(kmd.indata, start, end);
 
-		/* 4. Send the updated centroids to master */
-		MPI.COMM_WORLD.Send(kmd.indata, start, end-start, MPI.OBJECT, 0, 1);
+		/* 4. Send the updated data points to master */
+		sumBuffer = new DataPoint[num_cluster];
+		for (int i = 0; i < num_cluster; i++) {
+		    double[] initialVal = new double[kmd.dimension];
+		    for (int j = 0; j < kmd.dimension; j++) initialVal[j] = 0.0;
+		    sumBuffer[i] = new DataPoint(initialVal);
+		}
+		
+		for (int i = start; i < end; i++) {
+		    DataPoint dpoint = kmd.indata[i];
+		    sumBuffer[dpoint.group].count++;
+		    sumBuffer[dpoint.group].add(dpoint);
+		}
+		MPI.COMM_WORLD.Send(sumBuffer, 0, num_cluster, MPI.OBJECT, 0, 1);
 	    }
 
 	    /* 5. The master update the centroids */
 	    if (myrank == 0) {
-		DataPoint[] newCentroids = new DataPoint[num_cluster];
+		DataPoint[] newCentroids = null;
 		int[] centroidNum = new int[num_cluster];
 
 		/*
 		 * Add all the 
 		 */
-		for (DataPoint dpoint : kmd.indata) {
-		    if (newCentroids[dpoint.group] == null) {
-			double[] initialVal = new double[kmd.dimension];
-		    	for (int i = 0; i < kmd.dimension; i++) initialVal[i] = 0.0;
-			newCentroids[dpoint.group] = new DataPoint(initialVal);
-		    }
-		    
-		    newCentroids[dpoint.group].add(dpoint);
-		    centroidNum[dpoint.group]++;
-		}
-
 		for (int i = 0; i < num_cluster; i++) {
-		    newCentroids[i].divide((double) centroidNum[i]);
+		    sumBuffer[i].divide((double)sumBuffer[i].count);
+		    centroidNum[i] = sumBuffer[i].count;
 		}
-
+		newCentroids = sumBuffer;
 
 		if (kmd.isConverge(newCentroids, num_cluster)) {
 		    running[0] = false;
