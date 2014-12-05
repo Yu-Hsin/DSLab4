@@ -7,9 +7,9 @@ import java.util.HashSet;
 
 public class KmeansData {
 
-    public DataPoint[] centroids;
+    public DataPoint[] centroids; 
     public int numGroup;
-    public int dimension;
+    public int dimension; 
     ArrayList<DataPoint> indata;
 
     public KmeansData(int numG, int d) {
@@ -59,7 +59,7 @@ public class KmeansData {
 	    getNewCen(groupM, newCentroids);
 	    // check convergence
 	    if (isConverge(newCentroids)) {
-		System.out.println("Converge!");
+		printResult(groupM);
 		return;
 	    }
 	    // update the old centroids
@@ -175,6 +175,17 @@ public class KmeansData {
 	}
     }
 
+    public void printResult(ArrayList<DataPoint>[] group) {
+	System.out.println("Finish Running K-Means!");
+	System.out.println("Number of data in each clusters:");
+	int total = 0;
+	for (int i = 0; i < group.length; i++) {
+	    System.out.println("Group " + (i+1) + ": " + group[i].size());
+	    total += group[i].size();
+	}
+	System.out.println("Total data: " + total);
+    }
+    
     public static void main(String[] args) {
 	if (args.length != 3) {
 	    System.out
@@ -187,6 +198,5 @@ public class KmeansData {
 	kmd.parse(args[0]); // parse input and store in the object
 	kmd.setIniCen(); // set initial seed centroid
 	kmd.kmeanProcedure(); // do kmean procedure
-
     }
 }

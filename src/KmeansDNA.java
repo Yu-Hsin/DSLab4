@@ -6,38 +6,73 @@ import java.util.ArrayList;
 import java.util.HashSet;
 
 public class KmeansDNA {
-    public DataPoint[] centroids;
+
+    public DNAPoint[] centroids;
     public int numGroup;
     public int dimension;
-    ArrayList<DataPoint> indata;
+    ArrayList<DNAPoint> indata;
 
-    public KmeansDNA(int numG, int d) {
+    public KmeansDNA(int numG) {
 	numGroup = numG;
-	dimension = d;
-	centroids = new DataPoint[numG];
-	indata = new ArrayList<DataPoint>();
+	centroids = new DNAPoint[numG];
+	indata = new ArrayList<DNAPoint>();
     }
 
-    public double calDistPoint(double[] v1, double[] v2) {
-	double dist = 0;
+    /**
+     * calclate the DNA distance between two vectors
+     * 
+     * @param v1
+     *            vector1
+     * @param v2
+     *            vector2
+     * @return the DNA distance
+     */
+    public int calDistPoint(char[] v1, char[] v2) {
+	int dist = 0;
+	;
 
 	for (int i = 0; i < v1.length; i++) {
-	    dist += Math.pow((v1[i] - v2[i]), 2);
+	    dist += v1[i] == v2[i] ? 0 : 1;
 	}
-	return Math.sqrt(dist);
+	return dist;
     }
 
+    public int baseToIdx(char base) {
+	if (base == 'A')
+	    return 0;
+	else if (base == 'T')
+	    return 1;
+	else if (base == 'C')
+	    return 2;
+	else
+	    return 3;
+    }
+    
+    public char idxToBase (int idx) {
+	if (idx == 0)
+	    return 'A';
+	else if (idx == 1)
+	    return 'T';
+	else if (idx == 2)
+	    return 'C';
+	else 
+	    return 'G';
+    }
+
+    /**
+     * run k-means procedure
+     */
     public void kmeanProcedure() {
 	int iteration = 1;
 	while (true) {
 	    System.out.println(iteration++);
-	    DataPoint[] newCentroids = new DataPoint[centroids.length];
+	    DNAPoint[] newCentroids = new DNAPoint[centroids.length];
 
 	    @SuppressWarnings("unchecked")
-	    ArrayList<DataPoint>[] groupM = new ArrayList[centroids.length];
+	    ArrayList<DNAPoint>[] groupM = new ArrayList[centroids.length];
 
 	    for (int i = 0; i < centroids.length; i++) {
-		groupM[i] = new ArrayList<DataPoint>();
+		groupM[i] = new ArrayList<DNAPoint>();
 	    }
 
 	    // update for each group
@@ -45,24 +80,43 @@ public class KmeansDNA {
 	    // update the centroids
 	    getNewCen(groupM, newCentroids);
 	    // check convergence
-	    if (isConverge(newCentroids)) {
-		System.out.println("Converge!");
+	    if (isConverge(newCentroids) || iteration > 10000) {
+		printResult(groupM);
 		return;
 	    }
 	    // update the old centroids
 	    centroids = newCentroids;
 	}
     }
+    
+    
+    public void printResult(ArrayList<DNAPoint>[] group) {
+	System.out.println("Finish Running K-Means!");
+	System.out.println("Number of data in each clusters:");
+	int total = 0;
+	for (int i = 0; i < group.length; i++) {
+	    System.out.println("Group " + (i+1) + ": " + group[i].size());
+	    /*for (int j = 0; j < group[i].size(); j++)
+		System.out.println(group[i].get(j).data);
+		*/
+	    total += group[i].size();
+	}
+	System.out.println("Total data: " + total);
+    }
 
-    public void updateGroup(ArrayList<DataPoint>[] groupM) {
-
+    /**
+     * for each DataPoint, re-assign their group based on the new centroids
+     * 
+     * @param groupM
+     */
+    public void updateGroup(ArrayList<DNAPoint>[] groupM) {
 	// iterate all data points
 	for (int i = 0; i < indata.size(); i++) {
-	    double minDist = Double.MAX_VALUE;
+	    int minDist = Integer.MAX_VALUE;
 	    int group = 0;
 	    // iterate all centroid
 	    for (int j = 0; j < centroids.length; j++) {
-		double dist = 0;
+		int dist = 0;
 		// find the closest centroids
 		if ((dist = calDistPoint(centroids[j].data, indata.get(i).data)) < minDist) {
 		    group = j;
@@ -73,43 +127,82 @@ public class KmeansDNA {
 	}
     }
 
-    public void getNewCen(ArrayList<DataPoint>[] groupM,
-	    DataPoint[] newCentroids) {
+    /**
+     * get the new centroids from the newest formed groups
+     * 
+     * @param groupM
+     *            a list where each element conatins a list of DataPoint belongs
+     *            to that group
+     * @param newCentroids
+     *            new centroid
+     */
+    public void getNewCen(ArrayList<DNAPoint>[] groupM, DNAPoint[] newCentroids) {
+
 	for (int i = 0; i < groupM.length; i++) {
 	    if (groupM[i].size() == 0) { // no points in this centroids!
 		System.out.println("No points in this centroids!");
 	    }
-	    double[] tmp = new double[dimension];
-	    DataPoint newC = new DataPoint(tmp);
-
-	    for (int j = 0; j < groupM[i].size(); j++) {
-		newC.add(groupM[i].get(j));
+	    char[] tmp = new char[dimension];
+	    for (int p = 0; p < groupM[i].size(); p++) {
+		int[] count = new int[4];
+		for (int j = 0; j < dimension; j++) {
+		    char[] curDNA = groupM[i].get(p).data;
+		    count[baseToIdx(curDNA[j])] += 1;
+		}
+		tmp[i] = idxToBase(getMaxIdx(count));
 	    }
-	    newC.divide((double) groupM[i].size());
+	    DNAPoint newC = new DNAPoint(tmp);
 	    newCentroids[i] = newC;
 	}
     }
-
-    public boolean isConverge(DataPoint[] newCentroids) {
-	double diff = 0.0;
+    
+    public int getMaxIdx (int [] input) {
+	int ans = -1;
+	int max = Integer.MIN_VALUE;
+	for (int i = 0; i < input.length; i++) {
+	    if (input[i] > max) {
+		ans = i;
+		max = input[i];
+	    }
+	}
+	return ans;
+    }
+    
+    /**
+     * calculate the difference betweeen new centroids and old centroids and see
+     * if they are similar enough to satifsy the stop criterion
+     * 
+     * @param newCentroids
+     *            new centroids
+     * @return if the k-mean procedure converges or not
+     */
+    public boolean isConverge(DNAPoint[] newCentroids) {
+	double diff = 0;
 	for (int i = 0; i < newCentroids.length; i++) {
 	    diff += calDistPoint(newCentroids[i].data, centroids[i].data);
 	}
 	diff /= (double) numGroup;
 	System.out.println(diff);
-	return diff < 0.00001;
+	return diff < 0.1; // should check
     }
 
+    /**
+     * parse the data and store them into a DataPoint array
+     * 
+     * @param fnName
+     *            file name
+     */
     public void parse(String fnName) {
 	try {
 	    BufferedReader br = new BufferedReader(new FileReader(fnName));
 	    String str = "";
 	    while ((str = br.readLine()) != null) {
 		String[] strArr = str.split(",");
-		double[] dArr = new double[strArr.length];
+		dimension = strArr.length;
+		char[] dArr = new char[strArr.length];
 		for (int i = 0; i < strArr.length; i++)
-		    dArr[i] = Double.parseDouble(strArr[i]);
-		DataPoint dp = new DataPoint(dArr);
+		    dArr[i] = strArr[i].charAt(0);
+		DNAPoint dp = new DNAPoint(dArr);
 		indata.add(dp);
 	    }
 	    br.close();
@@ -120,6 +213,9 @@ public class KmeansDNA {
 	}
     }
 
+    /**
+     * set initial centroids
+     */
     public void setIniCen() {
 	HashSet<Integer> used = new HashSet<Integer>();
 	int count = 0;
@@ -133,17 +229,17 @@ public class KmeansDNA {
     }
 
     public static void main(String[] args) {
-	if (args.length != 3) {
+	if (args.length != 2) {
 	    System.out
-		    .println("[Usage] java KmeansData <input data> <number of cluster> <dimension>");
+		    .println("[Usage] java KmeansData <input data> <number of cluster>");
 	    return;
 	}
 
-	KmeansDNA kmdna = new KmeansDNA(Integer.parseInt(args[1]),
-		Integer.parseInt(args[2]));
-	kmdna.parse(args[0]); // parse input and store in the object
-	kmdna.setIniCen(); // set initial seed centroid
-	kmdna.kmeanProcedure(); // do kmean procedure
+	KmeansDNA kmd = new KmeansDNA(Integer.parseInt(args[1]));
+	kmd.parse(args[0]); // parse input and store in the object
+
+	kmd.setIniCen(); // set initial seed centroid
+	kmd.kmeanProcedure(); // do kmean procedure
 
     }
 }

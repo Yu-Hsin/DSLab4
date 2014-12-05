@@ -4,6 +4,7 @@ import java.io.Serializable;
 
 public class DataPoint implements Serializable{
     
+    private static final long serialVersionUID = 1L;
     public double [] data;
     private int group;
     
@@ -12,6 +13,7 @@ public class DataPoint implements Serializable{
     }
     
     public void setGroup (int g) { group = g; }
+    
     public int  getGroup () { return group; }
     
     public void add (DataPoint a) {
