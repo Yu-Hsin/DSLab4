@@ -231,9 +231,10 @@ public class KmeansDNA {
     }
 
     public static void main(String[] args) {
+	long startTime = System.currentTimeMillis();
 	if (args.length != 2) {
 	    System.out
-		    .println("[Usage] java KmeansData <input da	`````````ta> <number of cluster>");
+		    .println("[Usage] java KmeansData <input data> <number of cluster>");
 	    return;
 	}
 
@@ -242,6 +243,8 @@ public class KmeansDNA {
 
 	kmd.setIniCen(); // set initial seed centroid
 	kmd.kmeanProcedure(); // do kmean procedure
-
+	long endTime   = System.currentTimeMillis();
+	long totalTime = endTime - startTime;
+	System.out.println("Total runtime: " + totalTime + "(ms)");
     }
 }

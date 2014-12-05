@@ -174,6 +174,7 @@ public class KmeansDataPar {
     }
 
     public static void main(String[] args) throws MPIException {
+	long startTime = System.currentTimeMillis();
 	MPI.Init(args);
 	if (args.length != 2) {
 	    System.out
@@ -288,7 +289,12 @@ public class KmeansDataPar {
 		break;
 
 	}
-
+	
+	if (myrank == 0) {
+	    long endTime = System.currentTimeMillis();
+	    long totalTime = endTime - startTime;
+	    System.out.println("Total runtime: " + totalTime + "(ms)");
+	}
 	MPI.Finalize();
 	// kmd.kmeanProcedure(); // do kmean procedure
 
