@@ -150,7 +150,7 @@ public class KmeansDNA {
 		    char[] curDNA = groupM[i].get(p).data;
 		    count[baseToIdx(curDNA[j])] += 1;
 		}
-		tmp[i] = idxToBase(getMaxIdx(count));
+		tmp[j] = idxToBase(getMaxIdx(count));
 	    }
 	    DNAPoint newC = new DNAPoint(tmp);
 	    newCentroids[i] = newC;
